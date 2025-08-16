@@ -775,19 +775,6 @@ if page == "Admin ▸ Importar corpus":
 
 # ---------- Página: Admin ▸ Participantes ----------
 if page == "Admin ▸ Participantes":
-    st.header("Admin ▸ Participantes cadastrados")
-    pwd = st.text_input("Senha de admin", type="password")
-    if st.button("Entrar", key="login_participants"):
-        if pwd == ADMIN_PASSWORD and ADMIN_PASSWORD:
-            st.session_state["admin_ok_participants"] = True
-            st.rerun()
-        else:
-            st.error("Senha inválida.")
-    if not st.session_state.get("admin_ok_participants"):
-        st.stop()
-
-    st.success("Autenticado como admin.")
-
     # Filtros
     colf1, colf2, colf3 = st.columns([1,1,2])
     with colf1:
@@ -854,15 +841,15 @@ if page == "Admin ▸ Participantes":
     )
 
     #apagar usuarios
-    if st.button("Apagar TODOS os participantes (irrevogável)", type="primary"):
-        with conn() as c:
-            cur = c.cursor()
-            cur.execute("DELETE FROM respondents")
-            cur.execute("DELETE FROM evaluations")
-            cur.execute("DELETE FROM assignments")
-            c.commit()
-        st.success("Todos os participantes apagados com sucesso.")
-        st.rerun()
+    # if st.button("Apagar TODOS os participantes (irrevogável)", type="primary"):
+    #     with conn() as c:
+    #         cur = c.cursor()
+    #         cur.execute("DELETE FROM respondents")
+    #         cur.execute("DELETE FROM evaluations")
+    #         cur.execute("DELETE FROM assignments")
+    #         c.commit()
+    #     st.success("Todos os participantes apagados com sucesso.")
+    #     st.rerun()
 
     # Download
     st.download_button(
