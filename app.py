@@ -241,12 +241,11 @@ def participant_gate():
         else:
             st.error("Código inválido.")
     return False
-
 # ---------- Navegação ----------
 st.sidebar.title("Avaliação Das Respostas do Modelo")
 page = st.sidebar.radio(
     "Navegação",
-    ["Participar", "Admin ▸ Importar corpus", "Admin ▸ Resultados", "Admin ▸ Participantes", "Admin ▸ Limpar respostas"],
+    ["Participar", "Participantes", "Resultados", "Admin ▸ Importar corpus", "Admin ▸ Limpar respostas"],
     index=0
 )
 
@@ -263,8 +262,10 @@ if page == "Participar":
             name = st.text_input("Nome completo*", max_chars=120, value=st.session_state.get("user_name", ""))
         with col2:
             email = st.text_input("E-mail*", max_chars=180, value=st.session_state.get("user_email", ""))
-        profile = st.radio("Perfil*", ["Usuário comum", "Profissional da Saúde"], horizontal=True,
-                           index=1 if st.session_state.get("user_profile") == "saude" else 0)
+        profile = st.radio(
+            "Perfil*", ["Usuário comum", "Profissional da Saúde"], horizontal=True,
+            index=1 if st.session_state.get("user_profile") == "saude" else 0
+        )
         health_area = None
         if profile == "Profissional da Saúde":
             health_area = st.text_input(
@@ -275,9 +276,11 @@ if page == "Participar":
 
     if start:
         if not name or not email:
-            st.error("Preencha nome e e-mail."); st.stop()
+            st.error("Preencha nome e e-mail.")
+            st.stop()
         if profile == "Profissional da Saúde" and not health_area:
-            st.error("Informe a área de atuação."); st.stop()
+            st.error("Informe a área de atuação.")
+            st.stop()
 
         st.session_state.user_name = name.strip()
         st.session_state.user_email = email.strip()
@@ -286,7 +289,8 @@ if page == "Participar":
 
         status = respondent_status(st.session_state.user_email)
         if status and status[1] == 1:
-            st.warning("Este e-mail já enviou uma avaliação. Obrigado!"); st.stop()
+            st.warning("Este e-mail já enviou uma avaliação. Obrigado!")
+            st.stop()
 
         rid = ensure_respondent(
             email=st.session_state.user_email,
@@ -300,7 +304,8 @@ if page == "Participar":
             try:
                 create_assignments_for_user(rid)
             except Exception as e:
-                st.error(f"Não foi possível criar sua amostragem: {e}"); st.stop()
+                st.error(f"Não foi possível criar sua amostragem: {e}")
+                st.stop()
 
         st.session_state.assignment = load_assignments(rid)
         st.session_state.answers_buffer = st.session_state.get("answers_buffer", {})
@@ -309,9 +314,13 @@ if page == "Participar":
         df_ass = st.session_state.assignment
         if not df_ass.empty:
             valid_ids = [int(x) for x in df_ass["answer_id"].tolist()]
-            ev = (sb.table("evaluations").select("answer_id, is_useful")
-                  .eq("respondent_id", rid).in_("answer_id", valid_ids)
-                  .execute().data or [])
+            ev = (
+                sb.table("evaluations")
+                .select("answer_id, is_useful")
+                .eq("respondent_id", rid)
+                .in_("answer_id", valid_ids)
+                .execute().data or []
+            )
             answered_map = {int(r["answer_id"]): int(bool(r["is_useful"])) for r in ev}
             st.session_state.answers_buffer.update(answered_map)
             # primeiro não respondido
@@ -319,7 +328,8 @@ if page == "Participar":
             idx = 0
             for i, aid in enumerate(df_ass["answer_id"].tolist()):
                 if int(aid) not in answered_ids:
-                    idx = i; break
+                    idx = i
+                    break
             st.session_state.progress_idx = idx
 
         if len(st.session_state.answers_buffer) == 0:
@@ -333,7 +343,8 @@ if page == "Participar":
 
         df_ass = st.session_state.assignment
         if df_ass is None or df_ass.empty:
-            st.info("Ainda não há amostragem. Clique em 'Iniciar / Continuar'."); st.stop()
+            st.info("Ainda não há amostragem. Clique em 'Iniciar / Continuar'.")
+            st.stop()
 
         idx = int(st.session_state.get("progress_idx", 0))
         total = len(df_ass)
@@ -342,8 +353,10 @@ if page == "Participar":
         st.caption(f"Progresso: {answered_count} / {total}")
 
         current = df_ass.iloc[idx]
-        st.subheader("Pergunta"); st.write(current["pergunta"])
-        st.subheader("Resposta"); st.write(current["resposta"])
+        st.subheader("Pergunta")
+        st.write(current["pergunta"])
+        st.subheader("Resposta")
+        st.write(current["resposta"])
         st.caption(f"Grupo (normalizado): **{current['grupo']}**")
 
         a_id = int(current["answer_id"])
@@ -358,8 +371,12 @@ if page == "Participar":
                 "is_useful": bool(int(is_useful)),
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
-            upd = sb.table("evaluations").update(payload)\
-                .eq("respondent_id", rid).eq("answer_id", a_id).execute().data
+            upd = (
+                sb.table("evaluations")
+                .update(payload)
+                .eq("respondent_id", rid).eq("answer_id", a_id)
+                .execute().data
+            )
             if not upd:
                 payload["created_at"] = datetime.now(timezone.utc).isoformat()
                 sb.table("evaluations").insert(payload).execute()
@@ -372,9 +389,10 @@ if page == "Participar":
                 # ir para o próximo não respondido
                 answered_ids = set(st.session_state.answers_buffer.keys())
                 next_idx = idx
-                for i, aid in enumerate(df_ass["answer_id"].tolist()):
+                for i, aid in enumerate(df_ass["answer_id"].tolist()()):
                     if int(aid) not in answered_ids:
-                        next_idx = i; break
+                        next_idx = i
+                        break
                 st.session_state.progress_idx = next_idx
                 st.rerun()
         with cols[1]:
@@ -385,7 +403,8 @@ if page == "Participar":
                 next_idx = idx
                 for i, aid in enumerate(df_ass["answer_id"].tolist()):
                     if int(aid) not in answered_ids:
-                        next_idx = i; break
+                        next_idx = i
+                        break
                 st.session_state.progress_idx = next_idx
                 st.rerun()
 
@@ -409,41 +428,9 @@ if page == "Participar":
                     except Exception as e:
                         st.error(f"Erro ao enviar: {e}")
 
-# ---------- Página: Admin ▸ Importar corpus ----------
-if page == "Admin ▸ Importar corpus":
-    st.header("Admin ▸ Importar corpus (CSV)")
-    pwd = st.text_input("Senha de admin", type="password")
-    if st.button("Entrar", key="login_import"):
-        if pwd == ADMIN_PASSWORD and ADMIN_PASSWORD:
-            st.session_state["admin_ok_import"] = True; st.rerun()
-        else:
-            st.error("Senha inválida.")
-    if not st.session_state.get("admin_ok_import"): st.stop()
-
-    st.success("Autenticado como admin.")
-    up = st.file_uploader("Selecione o CSV", type=["csv"])
-    if up:
-        try:
-            df = read_corpus(up)
-            st.info("Prévia das primeiras linhas normalizadas:")
-            st.dataframe(df.head(30), use_container_width=True)
-
-            diag = df.groupby("grupo")["resposta"].count().rename("itens").reset_index()
-            diag["cota_exigida"] = diag["grupo"].map(QUOTAS).fillna(0).astype(int)
-            st.subheader("Diagnóstico de cotas (normalizado)")
-            st.dataframe(diag, use_container_width=True)
-
-            if st.button("Importar corpus para o banco", type="primary"):
-                import_corpus(df)
-                st.success(f"Importados {len(df)} pares pergunta-resposta.")
-        except Exception as e:
-            st.error(f"Erro ao ler/importar CSV: {e}")
-
-    
-
-# ---------- Página: Admin ▸ Participantes ----------
-if page == "Admin ▸ Participantes":
-    colf1, colf2, colf3 = st.columns([1,1,2])
+# ---------- Página: Participantes ----------
+elif page == "Participantes":
+    colf1, colf2, colf3 = st.columns([1, 1, 2])
     with colf1:
         f_profile = st.selectbox("Perfil", ["Todos", "Usuário comum", "Profissional da Saúde"], index=0)
     with colf2:
@@ -453,38 +440,43 @@ if page == "Admin ▸ Participantes":
 
     df_users = list_participants_for_admin()
     if df_users.empty:
-        st.info("Sem participantes ainda."); st.stop()
+        st.info("Sem participantes ainda.")
+        st.stop()
 
-    df_users["perfil"] = np.where(df_users["profile"]=="saude","Profissional da Saúde","Usuário comum")
+    df_users["perfil"] = np.where(df_users["profile"] == "saude", "Profissional da Saúde", "Usuário comum")
     if f_profile != "Todos":
         df_users = df_users[df_users["perfil"] == f_profile]
     if f_status != "Todos":
         if f_status == "Enviaram":
-            df_users = df_users[df_users["has_submitted"]==True]
+            df_users = df_users[df_users["has_submitted"] == True]
         else:
-            df_users = df_users[df_users["has_submitted"]==False]
+            df_users = df_users[df_users["has_submitted"] == False]
     if f_search:
         s = f_search.strip().lower()
         df_users = df_users[df_users["name"].str.lower().str.contains(s) | df_users["email"].str.lower().str.contains(s)]
 
     total = len(df_users)
-    enviados = int((df_users["has_submitted"]==True).sum())
-    saude = int((df_users["perfil"]=="Profissional da Saúde").sum())
-    comuns = int((df_users["perfil"]=="Usuário comum").sum())
+    enviados = int((df_users["has_submitted"] == True).sum())
+    saude = int((df_users["perfil"] == "Profissional da Saúde").sum())
+    comuns = int((df_users["perfil"] == "Usuário comum").sum())
 
-    k1,k2,k3,k4 = st.columns(4)
-    with k1: st.metric("Total cadastrados", total)
-    with k2: st.metric("Profissionais da Saúde", saude)
-    with k3: st.metric("Usuários comuns", comuns)
-    with k4: st.metric("Já enviaram", enviados)
+    k1, k2, k3, k4 = st.columns(4)
+    with k1:
+        st.metric("Total cadastrados", total)
+    with k2:
+        st.metric("Profissionais da Saúde", saude)
+    with k3:
+        st.metric("Usuários comuns", comuns)
+    with k4:
+        st.metric("Já enviaram", enviados)
 
     df_view = df_users.rename(columns={
-        "name":"Nome","email":"E-mail","perfil":"Perfil",
-        "health_area":"Área de atuação","created_at":"Cadastrado em",
-        "submitted_at":"Enviado em","has_submitted":"Enviou?",
-        "n_assignments":"Amostra (itens)","n_avaliacoes":"Avaliações"
-    })[["Nome","E-mail","Perfil","Área de atuação","Cadastrado em","Enviado em","Enviou?","Amostra (itens)","Avaliações"]]
-    df_view["Enviou?"] = df_view["Enviou?"].map({False:"Não", True:"Sim"})
+        "name": "Nome", "email": "E-mail", "perfil": "Perfil",
+        "health_area": "Área de atuação", "created_at": "Cadastrado em",
+        "submitted_at": "Enviado em", "has_submitted": "Enviou?",
+        "n_assignments": "Amostra (itens)", "n_avaliacoes": "Avaliações"
+    })[["Nome", "E-mail", "Perfil", "Área de atuação", "Cadastrado em", "Enviado em", "Enviou?", "Amostra (itens)", "Avaliações"]]
+    df_view["Enviou?"] = df_view["Enviou?"].map({False: "Não", True: "Sim"})
     st.dataframe(df_view, use_container_width=True)
 
     st.download_button(
@@ -494,18 +486,23 @@ if page == "Admin ▸ Participantes":
         mime="text/csv"
     )
 
-# ---------- Página: Admin ▸ Resultados ----------
-if page == "Admin ▸ Resultados":
-    st.header("Admin ▸ Resultados")
+# ---------- Página: Resultados ----------
+elif page == "Resultados":
+    st.header("Resultados")
+
     # Visão geral vindo de v_overview
     overview = sb.table("v_overview").select("*").execute().data or []
     if overview:
         o = overview[0]
         c1, c2, c3, c4 = st.columns(4)
-        with c1: st.metric("Pares no corpus", o.get("total_pairs", 0))
-        with c2: st.metric("Pares já avaliados", o.get("covered_pairs", 0))
-        with c3: st.metric("Cobertura", f"{o.get('cobertura_pct', 0):.1f}%")
-        with c4: st.metric("Acurácia (modelo vs consenso humano)", f"{o.get('acc_model_pct', 0):.1f}%")
+        with c1:
+            st.metric("Pares no corpus", o.get("total_pairs", 0))
+        with c2:
+            st.metric("Pares já avaliados", o.get("covered_pairs", 0))
+        with c3:
+            st.metric("Cobertura", f"{o.get('cobertura_pct', 0):.1f}%")
+        with c4:
+            st.metric("Acurácia (modelo vs consenso humano)", f"{o.get('acc_model_pct', 0):.1f}%")
     else:
         st.info("Sem dados em v_overview (verifique as views).")
 
@@ -533,21 +530,70 @@ if page == "Admin ▸ Resultados":
     else:
         st.info("Sem dados em v_acc_group.")
 
+    # === Concordância com o modelo (micro e macro) ===
+    st.subheader("Concordância com o modelo")
+
+    mi = pd.DataFrame(sb.table("v_model_agreement_micro").select("*").execute().data or [])
+    ma = pd.DataFrame(sb.table("v_model_agreement_macro").select("*").execute().data or [])
+    bg = pd.DataFrame(sb.table("v_model_agreement_by_group").select("*").execute().data or [])
+
+    label_map = {"comum": "Usuários comuns", "saude": "Profissionais da Saúde", "geral": "Geral"}
+
+    def metric_row(title: str, df: pd.DataFrame, count_col: str):
+        cols = st.columns(3)
+        for col, key in zip(cols, ["comum", "saude", "geral"]):
+            row = df[df["profile"] == key]
+            pct = float(row.iloc[0]["agree_pct"]) if not row.empty else 0.0
+            cnt = int(row.iloc[0][count_col]) if not row.empty else 0
+            col.metric(f"{title} • {label_map[key]}", f"{pct:.1f}%", help=f"Itens considerados: {cnt}")
+
+    # MICRO: acordo item-a-item (ponderado por nº de respostas do perfil)
+    metric_row("Micro", mi, "eligible_n")
+    # MACRO: média do acordo por eixo (cada eixo vale 1)
+    metric_row("Macro", ma, "groups_with_overlap")
+
+    # Detalhamento por eixo (cada perfil)
+    st.markdown("**Detalhamento por eixo temático (concordância com o modelo)**")
+    if bg.empty:
+        st.info("Sem dados por eixo ainda.")
+    else:
+        tabs = st.tabs([label_map[k] for k in ["comum", "saude", "geral"]])
+        for tab, key in zip(tabs, ["comum", "saude", "geral"]):
+            with tab:
+                sub = bg[bg["profile"] == key].copy()
+                sub = sub.rename(columns={
+                    "grupo_norm": "Eixo",
+                    "eligible_n": "Itens no eixo",
+                    "agree_n": "Acordos com o modelo",
+                    "agree_pct": "Concordância %"
+                }).sort_values("Concordância %", ascending=False)
+                if sub.empty:
+                    st.info("Sem sobreposição para este perfil.")
+                else:
+                    st.dataframe(sub, use_container_width=True)
+                    try:
+                        st.bar_chart(sub.set_index("Eixo")[["Concordância %"]])
+                    except Exception:
+                        pass
+
     # Resultados por perfil (v_profile)
     st.subheader("Resultados por perfil de avaliador")
     df_profile = pd.DataFrame(sb.table("v_profile").select("*").execute().data or [])
     if not df_profile.empty:
-        tabs = st.tabs(["Usuários comuns","Profissionais da Saúde"])
-        for tab, prof, label in zip(tabs, ["comum","saude"], ["Usuários comuns","Profissionais da Saúde"]):
+        tabs = st.tabs(["Usuários comuns", "Profissionais da Saúde"])
+        for tab, prof, label_txt in zip(tabs, ["comum", "saude"], ["Usuários comuns", "Profissionais da Saúde"]):
             with tab:
-                sub = df_profile[df_profile["profile"]==prof].copy()
+                sub = df_profile[df_profile["profile"] == prof].copy()
                 if sub.empty:
-                    st.info("Ainda não há avaliações para este perfil."); continue
+                    st.info("Ainda não há avaliações para este perfil.")
+                    continue
                 total_pairs_prof = int(sub["total_avaliados"].sum())
                 acc_prof = float(sub["acuracia_pct"].mean() if len(sub) else 0.0)
-                k1,k2 = st.columns(2)
-                with k1: st.metric("Pares avaliados (neste perfil)", total_pairs_prof)
-                with k2: st.metric(f"Acurácia (modelo vs consenso • {label})", f"{acc_prof:.1f}%")
+                k1, k2 = st.columns(2)
+                with k1:
+                    st.metric("Pares avaliados (neste perfil)", total_pairs_prof)
+                with k2:
+                    st.metric(f"Acurácia (modelo vs consenso • {label_txt})", f"{acc_prof:.1f}%")
                 st.dataframe(sub.sort_values("acuracia_pct", ascending=False), use_container_width=True)
 
                 # Detalhes por perfil (opcional: v_profile_pairs)
@@ -558,7 +604,10 @@ if page == "Admin ▸ Resultados":
                     if sub_pairs.empty:
                         st.info("Sem detalhes disponíveis.")
                     else:
-                        view_cols = ["pergunta","resposta","grupo_raw","grupo_norm","label_modelo","label_original","n_avaliacoes","pct_util_humano"]
+                        view_cols = [
+                            "pergunta", "resposta", "grupo_raw", "grupo_norm",
+                            "label_modelo", "label_original", "n_avaliacoes", "pct_util_humano"
+                        ]
                         st.dataframe(sub_pairs[view_cols], use_container_width=True)
 
     # Submissões por dia (v_submissions_daily)
@@ -576,7 +625,9 @@ if page == "Admin ▸ Resultados":
     # Tabela completa (v_all) + download
     st.subheader("Tabela completa (pares + métricas)")
     df_all = pd.DataFrame(
-        sb.table("v_all").select("pergunta,resposta,grupo_raw,grupo_norm,label_modelo,label_original,n_avaliacoes,pct_util_humano").limit(5000).execute().data or []
+        sb.table("v_all")
+        .select("pergunta,resposta,grupo_raw,grupo_norm,label_modelo,label_original,n_avaliacoes,pct_util_humano")
+        .limit(5000).execute().data or []
     )
     st.dataframe(df_all, use_container_width=True)
 
@@ -589,20 +640,50 @@ if page == "Admin ▸ Resultados":
         key="download_results_csv"
     )
 
+# ---------- Página: Admin ▸ Importar corpus ----------
+elif page == "Admin ▸ Importar corpus":
+    st.header("Admin ▸ Importar corpus (CSV)")
+    pwd = st.text_input("Senha de admin", type="password")
+    if st.button("Entrar", key="login_import"):
+        if pwd == ADMIN_PASSWORD and ADMIN_PASSWORD:
+            st.session_state["admin_ok_import"] = True
+            st.rerun()
+        else:
+            st.error("Senha inválida.")
+    if not st.session_state.get("admin_ok_import"):
+        st.stop()
 
+    st.success("Autenticado como admin.")
+    up = st.file_uploader("Selecione o CSV", type=["csv"])
+    if up:
+        try:
+            df = read_corpus(up)
+            st.info("Prévia das primeiras linhas normalizadas:")
+            st.dataframe(df.head(30), use_container_width=True)
 
+            diag = df.groupby("grupo")["resposta"].count().rename("itens").reset_index()
+            diag["cota_exigida"] = diag["grupo"].map(QUOTAS).fillna(0).astype(int)
+            st.subheader("Diagnóstico de cotas (normalizado)")
+            st.dataframe(diag, use_container_width=True)
 
+            if st.button("Importar corpus para o banco", type="primary"):
+                import_corpus(df)
+                st.success(f"Importados {len(df)} pares pergunta-resposta.")
+        except Exception as e:
+            st.error(f"Erro ao ler/importar CSV: {e}")
 
 # ---------- Página: Admin ▸ Limpar respostas ----------
-if page == "Admin ▸ Limpar respostas":
+elif page == "Admin ▸ Limpar respostas":
     st.header("Admin ▸ Limpar respostas e reabrir participação")
     pwd = st.text_input("Senha de admin", type="password")
     if st.button("Entrar", key="login_clear"):
-        if pwd == ADMIN_PASSWORD and ADMIN_PASSWORD:
-            st.session_state["admin_ok_clear"] = True; st.rerun()
+        if pwd == ADMIN_PASSWORD and ADMIN_PASSWORD:  # atenção ao 'and' minúsculo (correto)
+            st.session_state["admin_ok_clear"] = True
+            st.rerun()
         else:
             st.error("Senha inválida.")
-    if not st.session_state.get("admin_ok_clear"): st.stop()
+    if not st.session_state.get("admin_ok_clear"):
+        st.stop()
 
     st.warning("Esta ação apaga TODAS as avaliações e amostragens, mas mantém o corpus.")
     if st.button("Apagar avaliações e amostragens (irrevogável)", type="primary"):
