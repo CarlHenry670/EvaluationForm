@@ -609,6 +609,71 @@ elif page == "Resultados":
                             "label_modelo", "label_original", "n_avaliacoes", "pct_util_humano"
                         ]
                         st.dataframe(sub_pairs[view_cols], use_container_width=True)
+                        # === Força do consenso & Divergência por eixo ===
+    st.subheader("Força do consenso & Divergência por eixo")
+
+    # --- Força do consenso (|2*util - 1| * 100) ---
+    df_strength = pd.DataFrame(
+        sb.table("v_consensus_strength_by_group").select("*").execute().data or []
+    )
+
+    if df_strength.empty:
+        st.info("Sem dados de força do consenso ainda.")
+    else:
+        # tabela pivô: linhas = eixo, colunas = perfil
+        label_map = {"comum": "Usuários comuns", "saude": "Profissionais da Saúde", "geral": "Geral"}
+
+        piv = (df_strength
+            .assign(Perfil=lambda d: d["profile"].map(label_map))
+            .pivot(index="grupo_norm", columns="Perfil", values="strength_pct")
+            .sort_index())
+
+        st.markdown("**Força do consenso por eixo** (0 = dividido, 100 = unanimidade)")
+        st.dataframe(piv, use_container_width=True)
+
+        try:
+            st.bar_chart(piv)  # mostra as 3 séries lado a lado por eixo
+        except Exception:
+            pass
+
+    # --- Divergência por eixo (comuns x saúde) ---
+    df_div = pd.DataFrame(
+        sb.table("v_model_divergence_group").select("*").execute().data or []
+    )
+
+    st.markdown("**Divergência por eixo (Concordância com o modelo: Comuns − Saúde)**")
+    if df_div.empty:
+        st.info("Sem dados de divergência por eixo.")
+    else:
+        # ordenar por divergência absoluta (mais polêmicos no topo)
+        df_div = df_div.sort_values("abs_delta_comum_saude", ascending=False)
+
+        view_cols = [
+            "grupo_norm", "acc_comum", "acc_saude", "acc_geral",
+            "delta_comum_menos_saude", "abs_delta_comum_saude",
+            "items_comum", "items_saude", "items_geral"
+        ]
+        df_show = df_div[view_cols].rename(columns={
+            "grupo_norm": "Eixo",
+            "acc_comum": "Acc Comuns (%)",
+            "acc_saude": "Acc Saúde (%)",
+            "acc_geral": "Acc Geral (%)",
+            "delta_comum_menos_saude": "Δ Comuns − Saúde (pp)",
+            "abs_delta_comum_saude": "|Δ| (pp)",
+            "items_comum": "Itens (Comuns)",
+            "items_saude": "Itens (Saúde)",
+            "items_geral": "Itens (Geral)"
+        })
+
+        st.dataframe(df_show, use_container_width=True)
+
+        # gráfico da divergência absoluta
+        try:
+            chart = df_div.set_index("grupo_norm")[["abs_delta_comum_saude"]]
+            st.bar_chart(chart)
+        except Exception:
+            pass
+
 
     # Submissões por dia (v_submissions_daily)
     st.subheader("Cobertura ao longo do tempo (submissões)")
