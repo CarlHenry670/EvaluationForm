@@ -497,8 +497,6 @@ if page == "Admin ▸ Participantes":
 # ---------- Página: Admin ▸ Resultados ----------
 if page == "Admin ▸ Resultados":
     st.header("Admin ▸ Resultados")
-
-
     # Visão geral vindo de v_overview
     overview = sb.table("v_overview").select("*").execute().data or []
     if overview:
