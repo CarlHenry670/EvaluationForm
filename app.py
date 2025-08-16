@@ -241,6 +241,31 @@ def participant_gate():
         else:
             st.error("Código inválido.")
     return False
+
+def safe_answer_ids(df_ass) -> list[int]:
+    """Garante que teremos uma lista de ints mesmo se df_ass vier estranho."""
+    if df_ass is None or getattr(df_ass, "empty", True):
+        return []
+    try:
+        s = df_ass["answer_id"]
+    except Exception:
+        return []
+    # força Série -> lista de ints
+    import numpy as np
+    if np.ndim(s) == 0:              # virou escalar por algum motivo
+        return [int(s)]
+    try:
+        return pd.to_numeric(s, errors="coerce").dropna().astype(int).tolist()
+    except Exception:
+        return [int(x) for x in list(s)]
+
+def first_unanswered_index(df_ass: pd.DataFrame, answered_ids: set[int]) -> int:
+    ids = safe_answer_ids(df_ass)
+    for i, aid in enumerate(ids):
+        if int(aid) not in answered_ids:
+            return i
+    return max(0, len(ids) - 1)
+
 # ---------- Navegação ----------
 st.sidebar.title("Avaliação Das Respostas do Modelo")
 page = st.sidebar.radio(
@@ -313,7 +338,7 @@ if page == "Participar":
         # recuperar progresso salvo
         df_ass = st.session_state.assignment
         if not df_ass.empty:
-            valid_ids = [int(x) for x in df_ass["answer_id"].tolist()]
+            valid_ids = safe_answer_ids(df_ass)
             ev = (
                 sb.table("evaluations")
                 .select("answer_id, is_useful")
@@ -323,14 +348,9 @@ if page == "Participar":
             )
             answered_map = {int(r["answer_id"]): int(bool(r["is_useful"])) for r in ev}
             st.session_state.answers_buffer.update(answered_map)
-            # primeiro não respondido
+            # primeiro não respondido (usando helper)
             answered_ids = set(st.session_state.answers_buffer.keys())
-            idx = 0
-            for i, aid in enumerate(df_ass["answer_id"].tolist()):
-                if int(aid) not in answered_ids:
-                    idx = i
-                    break
-            st.session_state.progress_idx = idx
+            st.session_state.progress_idx = first_unanswered_index(df_ass, answered_ids)
 
         if len(st.session_state.answers_buffer) == 0:
             st.success("Amostragem pronta. Você vai avaliar 118 pares pergunta-resposta.")
@@ -386,13 +406,9 @@ if page == "Participar":
             if st.button("Útil ✅", use_container_width=True, key=f"useful_{idx}"):
                 upsert_eval(rid, a_id, q_id, 1)
                 st.session_state.answers_buffer[a_id] = 1
-                # ir para o próximo não respondido
+                # ir para o próximo não respondido (helper)
                 answered_ids = set(st.session_state.answers_buffer.keys())
-                next_idx = idx
-                for i, aid in enumerate(df_ass["answer_id"].tolist()()):
-                    if int(aid) not in answered_ids:
-                        next_idx = i
-                        break
+                next_idx = first_unanswered_index(df_ass, answered_ids)
                 st.session_state.progress_idx = next_idx
                 st.rerun()
         with cols[1]:
@@ -400,11 +416,7 @@ if page == "Participar":
                 upsert_eval(rid, a_id, q_id, 0)
                 st.session_state.answers_buffer[a_id] = 0
                 answered_ids = set(st.session_state.answers_buffer.keys())
-                next_idx = idx
-                for i, aid in enumerate(df_ass["answer_id"].tolist()):
-                    if int(aid) not in answered_ids:
-                        next_idx = i
-                        break
+                next_idx = first_unanswered_index(df_ass, answered_ids)
                 st.session_state.progress_idx = next_idx
                 st.rerun()
 
@@ -673,7 +685,6 @@ elif page == "Resultados":
             st.bar_chart(chart)
         except Exception:
             pass
-
 
     # Submissões por dia (v_submissions_daily)
     st.subheader("Cobertura ao longo do tempo (submissões)")
